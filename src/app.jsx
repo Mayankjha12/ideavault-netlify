@@ -1,15 +1,36 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { initializeApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, signInWithCustomToken, signInAnonymously } from 'firebase/auth';
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { LogOut, Loader, Zap, Plus, ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
 
 // =================================================================
-// 0. FIREBASE SETUP (GLOBAL CONFIG)
-// These variables are provided by the environment and parsed once.
+// 0. FIREBASE SETUP (GLOBAL CONFIG PARSED)
+// This code is executed once when the script loads.
 // =================================================================
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+
+// Initialize instances here if config exists, preventing global access errors
+let initializedApp = null;
+let authInstance = null;
+let dbInstance = null;
+let configError = '';
+
+try {
+    if (Object.keys(firebaseConfig).length > 0) {
+        initializedApp = initializeApp(firebaseConfig);
+        authInstance = getAuth(initializedApp);
+        dbInstance = getFirestore(initializedApp);
+    } else {
+        configError = "Authentication service is not available (Check Firebase config).";
+        console.error(configError);
+    }
+} catch (e) {
+    configError = `Firebase Initialization Failed: ${e.message}`;
+    console.error("Firebase Initialization Error:", e);
+}
+
 
 // =================================================================
 // 1. AUTHENTICATION PAGE (AuthPage Component)
@@ -22,9 +43,12 @@ const AuthPage = ({ auth }) => {
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
+    // If config failed globally, show the error immediately
+    const displayError = error || configError;
+
     const handleAuth = async () => {
         if (!auth) {
-            setError("Authentication service is not available (Check Firebase config).");
+            setError(configError || "Authentication service is not available.");
             return;
         }
 
@@ -33,15 +57,12 @@ const AuthPage = ({ auth }) => {
 
         try {
             if (isSigningUp) {
-                // Sign Up
                 await createUserWithEmailAndPassword(auth, email, password);
             } else {
-                // Sign In
                 await signInWithEmailAndPassword(auth, email, password);
             }
         } catch (err) {
             console.error("Authentication Error:", err);
-            // Enhanced error messages for common auth issues
             if (err.code === 'auth/email-already-in-use') {
                 setError('Email already in use. Try signing in.');
             } else if (err.code === 'auth/weak-password') {
@@ -80,9 +101,9 @@ const AuthPage = ({ auth }) => {
                     </button>
                 </div>
 
-                {error && (
+                {displayError && (
                     <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 text-sm" role="alert">
-                        {error}
+                        {displayError}
                     </div>
                 )}
 
@@ -107,7 +128,7 @@ const AuthPage = ({ auth }) => {
 
                 <button
                     onClick={handleAuth}
-                    disabled={isLoading || !email || !password}
+                    disabled={isLoading || !email || !password || configError}
                     className="mt-6 w-full flex justify-center items-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-md transition duration-150 ease-in-out disabled:opacity-50"
                 >
                     {isLoading ? <Loader className="animate-spin h-5 w-5 mr-3" /> : (
@@ -364,7 +385,7 @@ const IdeasPage = ({ user, handleSignOut, db }) => {
                                     : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
                             }`}
                         >
-                            {f}
+                            f}
                         </button>
                     ))}
                 </div>
@@ -455,17 +476,13 @@ export default function App() {
 
     // 1. Initialize Firebase, Auth, and Firestore
     useEffect(() => {
-        if (Object.keys(firebaseConfig).length === 0) {
+        if (configError) {
             setLoading(false);
             setAuthReady(true);
-            return; // Exit if config is empty
+            return;
         }
 
         try {
-            const app = initializeApp(firebaseConfig);
-            const authInstance = getAuth(app);
-            const dbInstance = getFirestore(app);
-
             // Set instances in state for use in child components
             setAuth(authInstance);
             setDb(dbInstance);
