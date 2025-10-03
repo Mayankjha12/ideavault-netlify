@@ -1,19 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { initializeApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, signInWithCustomToken, signInAnonymously } from 'firebase/auth';
-import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { LogOut, Loader, Zap, Plus, ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
 
-
+// =================================================================
+// 0. FIREBASE SETUP (GLOBAL CONFIG)
+// =================================================================
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
 
-let authInstance = null;
-let dbInstance = null;
+// =================================================================
+// 1. AUTHENTICATION PAGE (AuthPage Component)
+// =================================================================
 
-
-
-const AuthPage = () => {
+const AuthPage = ({ auth }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isSigningUp, setIsSigningUp] = useState(true);
@@ -21,7 +22,6 @@ const AuthPage = () => {
     const [isLoading, setIsLoading] = useState(false);
 
     const handleAuth = async () => {
-        const auth = authInstance;
         if (!auth) {
             setError("Authentication service is not available (Check Firebase config).");
             return;
@@ -32,13 +32,15 @@ const AuthPage = () => {
 
         try {
             if (isSigningUp) {
+                // Sign Up
                 await createUserWithEmailAndPassword(auth, email, password);
             } else {
+                // Sign In
                 await signInWithEmailAndPassword(auth, email, password);
             }
         } catch (err) {
             console.error("Authentication Error:", err);
-           
+            // Enhanced error messages for common auth issues
             if (err.code === 'auth/email-already-in-use') {
                 setError('Email already in use. Try signing in.');
             } else if (err.code === 'auth/weak-password') {
@@ -116,15 +118,16 @@ const AuthPage = () => {
     );
 };
 
-
+// =================================================================
+// 2. IDEAS PAGE (IdeasPage Component)
+// =================================================================
 
 const IdeaCard = ({ idea, userId, handleVote, handleDelete, userEmail }) => {
-
     const isOwner = idea.userId === userId;
     const hasVoted = idea.voters && idea.voters[userId];
     const voteCount = idea.votes || 0;
     
-   
+    // NOTE: Using window.confirm instead of a custom modal as per instructions
     const confirmDelete = () => {
         if (window.confirm("Are you sure you want to delete this idea?")) {
             handleDelete(idea.id);
@@ -178,28 +181,26 @@ const IdeaCard = ({ idea, userId, handleVote, handleDelete, userEmail }) => {
     );
 };
 
-const IdeasPage = ({ user, handleSignOut }) => {
+const IdeasPage = ({ user, handleSignOut, db }) => {
     const userId = user.uid;
-    
-    const userDisplay = user.email ? user.email.split('@')[0] : 'Guest'; 
     const userEmail = user.email || 'Anonymous';
+    const userDisplay = user.email ? user.email.split('@')[0] : 'Guest';
+    
     const [ideas, setIdeas] = useState([]);
     const [newIdea, setNewIdea] = useState({ title: '', description: '', category: '' });
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [filter, setFilter] = useState('top'); 
+    const [filter, setFilter] = useState('top'); // Default filter set to 'top'
     const [error, setError] = useState('');
     const [showSubmitForm, setShowSubmitForm] = useState(false);
 
-    const db = dbInstance; 
-
-    
+    // 1. Fetch Ideas (Real-time listener)
     useEffect(() => {
         if (!db) return;
 
-        
+        // Public collection path: /artifacts/{appId}/public/data/ideas
         const ideasColRef = collection(db, 'artifacts', appId, 'public', 'data', 'ideas');
         
-
+        // Query ordered by creation time descending for stable fetching
         const q = query(ideasColRef, orderBy('createdAt', 'desc'));
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -207,17 +208,18 @@ const IdeasPage = ({ user, handleSignOut }) => {
                 id: doc.id,
                 ...doc.data()
             }));
-r 
+
+            // Local sorting based on filter (essential as Firestore queries are limited)
             const sortedIdeas = fetchedIdeas.sort((a, b) => {
                 if (filter === 'top') {
-                  
+                    // Sort by votes, highest first
                     return (b.votes || 0) - (a.votes || 0);
                 }
                 if (filter === 'new') {
-                   
+                    // Sort by creation time (using optional chaining for timestamp)
                     return (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0);
                 }
-                return (b.votes || 0) - (a.votes || 0);
+                return (b.votes || 0) - (a.votes || 0); // Default to top
             });
 
             setIdeas(sortedIdeas);
@@ -229,7 +231,7 @@ r
         return () => unsubscribe();
     }, [db, filter]);
 
-
+    // 2. Submit New Idea
     const handleSubmitIdea = async (e) => {
         e.preventDefault();
         if (!db || !newIdea.title || !newIdea.description) {
@@ -248,7 +250,7 @@ r
                 userId: userId,
                 userEmail: userEmail,
                 votes: 0,
-                voters: {}, 
+                voters: {}, // Tracks who voted 
                 createdAt: serverTimestamp(),
             });
             setNewIdea({ title: '', description: '', category: '' });
@@ -261,7 +263,7 @@ r
         }
     };
 
-
+    // 3. Vote Logic (Upvote/Downvote)
     const handleVote = useCallback(async (ideaId, currentUserId, voteType) => {
         if (!db) return;
 
@@ -276,16 +278,18 @@ r
             let newVoters = currentIdea.voters || {};
 
             if (currentVote === voteType) {
-             
+                // User is revoking their vote 
                 newVoteCount -= voteType;
                 delete newVoters[currentUserId];
             } else {
+                // User is changing their vote or casting a new vote
                 
+                // 1. Remove previous vote effect (if any)
                 if (currentVote !== 0) {
                     newVoteCount -= currentVote;
                 }
                 
-           
+                // 2. Apply new vote effect
                 newVoteCount += voteType;
                 newVoters[currentUserId] = voteType;
             }
@@ -300,7 +304,7 @@ r
         }
     }, [db, ideas]);
 
-
+    // 4. Delete Idea (Only allowed for the owner)
     const handleDelete = async (ideaId) => {
         if (!db) return;
         
@@ -444,41 +448,45 @@ export default function App() {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [isAuthReady, setAuthReady] = useState(false);
+    // State to hold Firebase instances
+    const [auth, setAuth] = useState(null);
+    const [db, setDb] = useState(null);
 
- 
+    // 1. Initialize Firebase, Auth, and Firestore
     useEffect(() => {
-     
         if (Object.keys(firebaseConfig).length === 0) {
             setLoading(false);
             setAuthReady(true);
-            return;
+            return; // Exit if config is empty
         }
 
         try {
             const app = initializeApp(firebaseConfig);
-            const auth = getAuth(app);
-            const db = getFirestore(app);
+            const authInstance = getAuth(app);
+            const dbInstance = getFirestore(app);
 
-          
-            authInstance = auth;
-            dbInstance = db;
-         
+            // Set instances in state for use in child components
+            setAuth(authInstance);
+            setDb(dbInstance);
 
             const initializeAuth = async () => {
-     
+                // We attempt to sign in anonymously if no token is available, 
+                // but we rely on onAuthStateChanged to pick up standard logins/signups.
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token).catch(e => console.error("Custom Auth Error:", e));
+                    await signInWithCustomToken(authInstance, __initial_auth_token).catch(e => console.error("Custom Auth Error:", e));
                 } else {
-                    await signInAnonymously(auth).catch(e => console.error("Anonymous Auth Error:", e));
+                    // For the canvas environment, signing in anonymously often ensures the Firebase connection is active
+                    await signInAnonymously(authInstance).catch(e => console.error("Anonymous Auth Error:", e));
                 }
                 setAuthReady(true);
             };
             
             initializeAuth();
 
-            const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+            // 2. Set up Auth State Listener
+            const unsubscribe = onAuthStateChanged(authInstance, (currentUser) => {
                 setUser(currentUser);
-                setLoading(false);
+                setLoading(false); // Authentication state is settled
             });
 
             return () => unsubscribe();
@@ -487,13 +495,13 @@ export default function App() {
             setLoading(false);
             setAuthReady(true);
         }
-    }, []);
+    }, []); // Run only once on mount
 
-
+    // 3. Sign Out Function
     const handleSignOut = async () => {
-        if (!authInstance) return;
+        if (!auth) return;
         try {
-            await signOut(authInstance);
+            await signOut(auth);
         } catch (e) {
             console.error("Sign Out Error:", e);
         }
@@ -503,16 +511,18 @@ export default function App() {
         return (
             <div className="flex items-center justify-center min-h-screen bg-gray-50 text-gray-600 text-lg">
                 <Loader className="animate-spin h-6 w-6 mr-3 text-indigo-500" />
-                Loading App...
+                Loading Application...
             </div>
         );
     }
 
+    // Conditional Routing based on Auth state
     if (user && user.email) {
-
-        return <IdeasPage user={user} handleSignOut={handleSignOut} />;
+        // Logged in user with Email
+        return <IdeasPage user={user} handleSignOut={handleSignOut} db={db} />;
     } else {
-  
-        return <AuthPage />;
+        // Logged out user (or anonymous user from Canvas initial sign-in)
+        return <AuthPage auth={auth} />;
     }
 }
+
