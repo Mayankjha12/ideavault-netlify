@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Lightbulb } from 'lucide-react'; // Make sure to install: npm install lucide-react
-import AuthForm from '../components/AuthForm';
+import { Lightbulb } from 'lucide-react'; 
+import AuthForm from './AuthForm'; // Adjusted path to AuthForm for consistency (was '../components/AuthForm')
 
-const AuthPage = () => {
+// Receive the handleAuth prop from App.jsx
+const AuthPage = ({ handleAuth }) => { 
   const [isSignIn, setIsSignIn] = useState(true);
 
   return (
@@ -26,7 +27,12 @@ const AuthPage = () => {
 
       {/* Main Form Container */}
       <div className="w-full max-w-sm bg-white p-8 rounded-xl shadow-2xl">
-        <AuthForm isSignIn={isSignIn} toggleView={setIsSignIn} />
+        {/* Pass handleAuth to AuthForm */}
+        <AuthForm 
+          isSignIn={isSignIn} 
+          toggleView={setIsSignIn} 
+          handleAuth={handleAuth} // PASSING handleAuth
+        />
       </div>
     </div>
   );
