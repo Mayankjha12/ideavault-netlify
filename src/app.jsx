@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { initializeApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, signInWithCustomToken, signInAnonymously } from 'firebase/auth';
 import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { LogOut, Loader, Zap, Plus, ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
 
 // =================================================================
 // 0. FIREBASE SETUP (GLOBAL CONFIG)
+// These variables are provided by the environment and parsed once.
 // =================================================================
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
@@ -127,7 +128,7 @@ const IdeaCard = ({ idea, userId, handleVote, handleDelete, userEmail }) => {
     const hasVoted = idea.voters && idea.voters[userId];
     const voteCount = idea.votes || 0;
     
-    // NOTE: Using window.confirm instead of a custom modal as per instructions
+    // NOTE: Using window.confirm instead of a custom modal 
     const confirmDelete = () => {
         if (window.confirm("Are you sure you want to delete this idea?")) {
             handleDelete(idea.id);
@@ -470,14 +471,8 @@ export default function App() {
             setDb(dbInstance);
 
             const initializeAuth = async () => {
-                // We attempt to sign in anonymously if no token is available, 
-                // but we rely on onAuthStateChanged to pick up standard logins/signups.
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(authInstance, __initial_auth_token).catch(e => console.error("Custom Auth Error:", e));
-                } else {
-                    // For the canvas environment, signing in anonymously often ensures the Firebase connection is active
-                    await signInAnonymously(authInstance).catch(e => console.error("Anonymous Auth Error:", e));
-                }
+                // For the canvas environment, signing in anonymously often ensures the Firebase connection is active
+                await signInAnonymously(authInstance).catch(e => console.error("Anonymous Auth Error:", e));
                 setAuthReady(true);
             };
             
