@@ -7,10 +7,8 @@ const EMAIL_KEY = 'ideaVaultUserEmail';
 const CREDENTIALS_KEY = 'ideaVaultCredentials';
 const IDEAS_KEY = 'ideaVaultIdeas';
 
-// Fixed User ID for Local Storage version
 const LOCAL_USER_ID = 'local-storage-user';
 
-// --- SEED DATA (Initial 4 Ideas) ---
 const SEED_IDEAS = [
     { 
         id: '1', 
@@ -58,9 +56,6 @@ const SEED_IDEAS = [
     },
 ];
 
-// **********************************************
-// ** UPDATED loadIdeas FUNCTION **
-// **********************************************
 const loadIdeas = () => {
     try {
         const storedIdeas = localStorage.getItem(IDEAS_KEY);
@@ -81,7 +76,6 @@ const loadIdeas = () => {
     }
 };
 
-// Function to safely save ideas to Local Storage
 const saveIdeas = (ideas) => {
     try {
         localStorage.setItem(IDEAS_KEY, JSON.stringify(ideas));
@@ -90,7 +84,6 @@ const saveIdeas = (ideas) => {
     }
 };
 
-// Function to load all stored credentials
 const loadCredentials = () => {
     try {
         const stored = localStorage.getItem(CREDENTIALS_KEY);
@@ -100,8 +93,6 @@ const loadCredentials = () => {
     }
 };
 
-// Function to save all stored credentials
-const saveCredentials = (credentials) => {
     try {
         localStorage.setItem(CREDENTIALS_KEY, JSON.stringify(credentials));
     } catch (e) {
@@ -109,10 +100,6 @@ const saveCredentials = (credentials) => {
     }
 };
 
-
-// =================================================================
-// 1. IDEA CARD COMPONENT
-// =================================================================
 
 const IdeaCard = ({ idea, handleVote, handleDelete }) => {
     const isOwner = true;
@@ -172,10 +159,6 @@ const IdeaCard = ({ idea, handleVote, handleDelete }) => {
     );
 };
 
-// =================================================================
-// 2. CONSISTENT HEADER COMPONENT
-// =================================================================
-
 const GradientHeaderLogo = () => (
     <div className="flex items-center space-x-2">
         <div 
@@ -190,16 +173,9 @@ const GradientHeaderLogo = () => (
     </div>
 );
 
-// =================================================================
-// 3. IDEAS PAGE COMPONENT
-// =================================================================
-
 const IdeasPage = ({ user, handleSignOut }) => {
     const userDisplay = user.email ? user.email.split('@')[0] : 'Guest';
     
-    // **********************************************
-    // ** loadIdeas is called here **
-    // **********************************************
     const [ideas, setIdeas] = useState(loadIdeas);
     const [newIdea, setNewIdea] = useState({ title: '', description: '', category: '' });
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -430,10 +406,6 @@ const IdeasPage = ({ user, handleSignOut }) => {
 };
 
 
-// =================================================================
-// 4. MAIN APP COMPONENT
-// =================================================================
-
 export default function App() {
     const [user, setUser] = useState(() => {
         const isLoggedIn = localStorage.getItem(AUTH_KEY) === 'true';
@@ -471,9 +443,6 @@ export default function App() {
         return { success: false, error: "Invalid authentication type." };
     };
     
-    // **********************************************
-    // ** handleSignOut is correct, it clears the keys **
-    // **********************************************
     const handleSignOut = () => {
         localStorage.removeItem(AUTH_KEY);
         localStorage.removeItem(EMAIL_KEY);
