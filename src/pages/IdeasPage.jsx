@@ -1,6 +1,6 @@
 import React from 'react';
 import { Lightbulb, Sun, Clock, TrendingUp } from 'lucide-react';
-import IdeaCard from '../components/IdeaCard';
+import IdeaCard from '../components/IdeaCard.jsx';
 
 // Dummy Data
 const DUMMY_IDEAS = [
