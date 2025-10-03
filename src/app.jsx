@@ -1,17 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { LogOut, Loader, Zap, Plus, ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
+import AuthPage from './AuthPage'; // Ensure AuthPage.jsx exists in the same directory
 
 // =================================================================
 // 0. LOCAL STORAGE & DATA UTILS
 // =================================================================
 
+// Local Storage Keys
+const AUTH_KEY = 'ideaVaultUser';
+const EMAIL_KEY = 'ideaVaultUserEmail';
+const IDEAS_KEY = 'ideaVaultIdeas';
+
+// Fixed User ID for Local Storage version
+const LOCAL_USER_ID = 'local-storage-user';
+
 // Function to safely load ideas from Local Storage
 const loadIdeas = () => {
     try {
-        const storedIdeas = localStorage.getItem('ideaVaultIdeas');
+        const storedIdeas = localStorage.getItem(IDEAS_KEY);
         return storedIdeas ? JSON.parse(storedIdeas) : [];
     } catch (e) {
-        console.error("Error loading from local storage:", e);
         return [];
     }
 };
@@ -19,32 +27,23 @@ const loadIdeas = () => {
 // Function to safely save ideas to Local Storage
 const saveIdeas = (ideas) => {
     try {
-        localStorage.setItem('ideaVaultIdeas', JSON.stringify(ideas));
+        localStorage.setItem(IDEAS_KEY, JSON.stringify(ideas));
     } catch (e) {
-        console.error("Error saving to local storage:", e);
+        // Handle error if storage is full
     }
 };
 
-// Fixed User ID for Local Storage version (since no real login is needed)
-const LOCAL_USER_ID = 'local-storage-user';
-const LOCAL_USER_EMAIL = 'localuser@ideavault.com';
-
 // =================================================================
-// 1. AUTH PAGE (AuthPage Component) - Removed as no auth is needed
-// The main App component will now render the IdeasPage directly.
-// =================================================================
-
-
-// =================================================================
-// 2. IDEAS PAGE (IdeasPage Component) - Main Application
+// 1. IDEAS PAGE (IdeasPage Component) - Your main app content
 // =================================================================
 
 const IdeaCard = ({ idea, handleVote, handleDelete }) => {
-    // In Local Storage mode, everyone is the 'owner' for simplicity in voting/deleting
+    // Everyone is the 'owner' for local storage version simplicity
     const isOwner = true; 
     const hasVoted = idea.voters && idea.voters[LOCAL_USER_ID];
     const voteCount = idea.votes || 0;
     
+    // NOTE: Using window.confirm instead of a custom modal 
     const confirmDelete = () => {
         if (window.confirm("Are you sure you want to delete this idea?")) {
             handleDelete(idea.id);
@@ -90,7 +89,7 @@ const IdeaCard = ({ idea, handleVote, handleDelete }) => {
                 <div className="mt-3 text-sm text-gray-500">
                     <span className="font-medium text-indigo-600 mr-2">{idea.category || 'General'}</span>
                     <span className="text-xs">
-                        Shared by: Local User
+                        Shared by: {idea.userEmail ? idea.userEmail.split('@')[0] : 'Local User'}
                     </span>
                 </div>
             </div>
@@ -98,99 +97,20 @@ const IdeaCard = ({ idea, handleVote, handleDelete }) => {
     );
 };
 
-const IdeasPage = () => {
+const IdeasPage = ({ user, handleSignOut }) => {
+    const userDisplay = user.email ? user.email.split('@')[0] : 'Guest';
+    
     const [ideas, setIdeas] = useState(loadIdeas);
     const [newIdea, setNewIdea] = useState({ title: '', description: '', category: '' });
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [filter, setFilter] = useState('top'); 
+    const [filter, setFilter] = useState('top');
     const [error, setError] = useState('');
     const [showSubmitForm, setShowSubmitForm] = useState(false);
 
-    // 1. Save ideas to Local Storage whenever 'ideas' state changes
     useEffect(() => {
         saveIdeas(ideas);
     }, [ideas]);
 
-    // 2. Submit New Idea (Local Storage update)
-    const handleSubmitIdea = (e) => {
-        e.preventDefault();
-        if (!newIdea.title || !newIdea.description) {
-            setError("Please fill in the title and description.");
-            return;
-        }
-
-        setIsSubmitting(true);
-        setError('');
-        
-        const newIdeaObject = {
-            id: Date.now().toString(), // Simple unique ID
-            title: newIdea.title,
-            description: newIdea.description,
-            category: newIdea.category || 'General',
-            userId: LOCAL_USER_ID,
-            userEmail: LOCAL_USER_EMAIL,
-            votes: 0,
-            voters: {},
-            createdAt: Date.now(),
-        };
-        
-        setIdeas(prevIdeas => {
-            const updatedIdeas = [newIdeaObject, ...prevIdeas];
-            // Re-sort to show the new idea instantly
-            return updatedIdeas.sort((a, b) => (b.votes || 0) - (a.votes || 0));
-        });
-
-        setNewIdea({ title: '', description: '', category: '' });
-        setShowSubmitForm(false);
-        setIsSubmitting(false);
-    };
-
-    // 3. Vote Logic (Local Storage update)
-    const handleVote = (ideaId, voteType) => {
-        setIdeas(prevIdeas => {
-            const updatedIdeas = prevIdeas.map(idea => {
-                if (idea.id === ideaId) {
-                    const currentVote = idea.voters ? idea.voters[LOCAL_USER_ID] : 0;
-                    let newVoteCount = idea.votes || 0;
-                    let newVoters = idea.voters ? { ...idea.voters } : {};
-
-                    if (currentVote === voteType) {
-                        // User is revoking their vote
-                        newVoteCount -= voteType;
-                        delete newVoters[LOCAL_USER_ID];
-                    } else {
-                        // User is changing their vote or casting a new vote
-                        if (currentVote !== 0) {
-                            newVoteCount -= currentVote;
-                        }
-                        newVoteCount += voteType;
-                        newVoters[LOCAL_USER_ID] = voteType;
-                    }
-
-                    return { ...idea, votes: newVoteCount, voters: newVoters };
-                }
-                return idea;
-            });
-            
-            // Re-sort the ideas based on the current filter
-            return updatedIdeas.sort((a, b) => {
-                if (filter === 'top') {
-                    return (b.votes || 0) - (a.votes || 0);
-                }
-                if (filter === 'new') {
-                    return b.createdAt - a.createdAt;
-                }
-                return (b.votes || 0) - (a.votes || 0);
-            });
-        });
-    };
-
-    // 4. Delete Idea
-    const handleDelete = (ideaId) => {
-        setIdeas(prevIdeas => prevIdeas.filter(idea => idea.id !== ideaId));
-    };
-    
-    // Sort ideas when filter changes (although sorting happens on update, this is cleaner)
     useEffect(() => {
         setIdeas(prevIdeas => {
             return [...prevIdeas].sort((a, b) => {
@@ -203,8 +123,80 @@ const IdeasPage = () => {
                 return (b.votes || 0) - (a.votes || 0);
             });
         });
-    }, [filter]);
+    }, [filter, setIdeas]);
 
+
+    const handleSubmitIdea = (e) => {
+        e.preventDefault();
+        if (!newIdea.title || !newIdea.description) {
+            setError("Please fill in the title and description.");
+            return;
+        }
+
+        setIsSubmitting(true);
+        setError('');
+        
+        const newIdeaObject = {
+            id: Date.now().toString(),
+            title: newIdea.title,
+            description: newIdea.description,
+            category: newIdea.category || 'General',
+            userId: LOCAL_USER_ID,
+            userEmail: user.email,
+            votes: 0,
+            voters: {},
+            createdAt: Date.now(),
+        };
+        
+        setIdeas(prevIdeas => {
+            const updatedIdeas = [newIdeaObject, ...prevIdeas];
+            return updatedIdeas.sort((a, b) => (b.votes || 0) - (a.votes || 0));
+        });
+
+        setNewIdea({ title: '', description: '', category: '' });
+        setShowSubmitForm(false);
+        setIsSubmitting(false);
+    };
+
+    const handleVote = useCallback((ideaId, voteType) => {
+        setIdeas(prevIdeas => {
+            const updatedIdeas = prevIdeas.map(idea => {
+                if (idea.id === ideaId) {
+                    const currentVote = idea.voters ? idea.voters[LOCAL_USER_ID] : 0;
+                    let newVoteCount = idea.votes || 0;
+                    let newVoters = idea.voters ? { ...idea.voters } : {};
+
+                    if (currentVote === voteType) {
+                        newVoteCount -= voteType;
+                        delete newVoters[LOCAL_USER_ID];
+                    } else {
+                        if (currentVote !== 0) {
+                            newVoteCount -= currentVote;
+                        }
+                        newVoteCount += voteType;
+                        newVoters[LOCAL_USER_ID] = voteType;
+                    }
+
+                    return { ...idea, votes: newVoteCount, voters: newVoters };
+                }
+                return idea;
+            });
+            
+            return updatedIdeas.sort((a, b) => {
+                if (filter === 'top') {
+                    return (b.votes || 0) - (a.votes || 0);
+                }
+                if (filter === 'new') {
+                    return b.createdAt - a.createdAt;
+                }
+                return (b.votes || 0) - (a.votes || 0);
+            });
+        });
+    }, [filter, setIdeas]);
+
+    const handleDelete = (ideaId) => {
+        setIdeas(prevIdeas => prevIdeas.filter(idea => idea.id !== ideaId));
+    };
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -212,10 +204,11 @@ const IdeasPage = () => {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
                     <div className="flex items-center space-x-2">
                         <Zap className="h-6 w-6 text-indigo-600" />
-                        <h1 className="text-xl font-bold text-gray-900">IdeaVault (Local Data)</h1>
+                        {/* FINAL FIX: Removed (Local Data) from the header title */}
+                        <h1 className="text-xl font-bold text-gray-900">IdeaVault</h1> 
                     </div>
                     <div className="flex items-center space-x-3 text-sm">
-                        <span className="text-gray-600 hidden sm:inline truncate max-w-xs font-medium">Welcome, Guest</span>
+                        <span className="text-gray-600 hidden sm:inline truncate max-w-xs font-medium">Welcome, {userDisplay}</span>
                         <button
                             onClick={() => setShowSubmitForm(true)}
                             className="flex items-center px-4 py-2 border border-transparent font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 transition duration-150 shadow-md"
@@ -223,14 +216,21 @@ const IdeasPage = () => {
                             <Plus className="w-4 h-4 mr-2" />
                             Submit Idea
                         </button>
-                        {/* Sign Out button removed as there is no login */}
+                        <button
+                            onClick={handleSignOut}
+                            className="flex items-center text-gray-600 hover:text-red-500 transition duration-150"
+                        >
+                            <LogOut className="w-5 h-5 mr-1" />
+                            Sign Out
+                        </button>
                     </div>
                 </div>
             </header>
 
             <main className="max-w-7xl mx-auto py-8 sm:px-6 lg:px-8">
                 <h2 className="text-3xl font-extrabold text-gray-900 mb-2">Startup Ideas</h2>
-                <p className="text-gray-500 mb-6">Discover and vote on the next big thing (Data stored locally in your browser)</p>
+                {/* FINAL FIX: Removed (Fake Auth & Local Data) from the subtitle */}
+                <p className="text-gray-500 mb-6">Discover and vote on the next big thing</p>
                 
                 {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 text-sm">{error}</div>}
 
@@ -325,7 +325,46 @@ const IdeasPage = () => {
 
 
 export default function App() {
-    // No more complex loading/auth state. We render the main app immediately.
-    
-    return <IdeasPage />;
+    // Initial state: Check Local Storage for saved login status
+    const [user, setUser] = useState(() => {
+        const isLoggedIn = localStorage.getItem(AUTH_KEY) === 'true';
+        const userEmail = localStorage.getItem(EMAIL_KEY);
+        return isLoggedIn && userEmail ? { uid: LOCAL_USER_ID, email: userEmail } : null;
+    });
+    const [loading, setLoading] = useState(true);
+
+    // Function to update user state after Sign In/Sign Up
+    const setLocalUser = (userData) => {
+        setUser(userData);
+    };
+
+    // Fake Sign Out function
+    const handleSignOut = () => {
+        localStorage.removeItem(AUTH_KEY);
+        localStorage.removeItem(EMAIL_KEY);
+        setUser(null);
+    };
+
+    // Simulate app loading briefly
+    useEffect(() => {
+        setTimeout(() => setLoading(false), 500);
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-gray-50 text-gray-600 text-lg">
+                <Loader className="animate-spin h-6 w-6 mr-3 text-indigo-500" />
+                Loading Application...
+            </div>
+        );
+    }
+
+    // Conditional Routing based on Auth state
+    if (user && user.email) {
+        // Logged in user with Email (Local Storage)
+        return <IdeasPage user={user} handleSignOut={handleSignOut} />;
+    } else {
+        // Logged out user: Show the fake AuthPage
+        return <AuthPage setLocalUser={setLocalUser} />;
+    }
 }
