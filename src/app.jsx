@@ -4,20 +4,14 @@ import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, si
 import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { LogOut, Loader, Zap, Plus, ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
 
-// =================================================================
-// 0. FIREBASE SETUP (Global configuration, instances set in App component)
-// =================================================================
+
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
 
-// Placeholder variables to be set by the App component's useEffect
 let authInstance = null;
 let dbInstance = null;
 
-// =================================================================
-// 1. AUTHENTICATION PAGE (AuthPage Component)
-// Handles Sign Up and Sign In logic using Firebase Auth.
-// =================================================================
+
 
 const AuthPage = () => {
     const [email, setEmail] = useState('');
@@ -44,7 +38,7 @@ const AuthPage = () => {
             }
         } catch (err) {
             console.error("Authentication Error:", err);
-            // Provide user-friendly error messages
+           
             if (err.code === 'auth/email-already-in-use') {
                 setError('Email already in use. Try signing in.');
             } else if (err.code === 'auth/weak-password') {
@@ -122,18 +116,15 @@ const AuthPage = () => {
     );
 };
 
-// =================================================================
-// 2. IDEAS PAGE (IdeasPage Component)
-// Handles Idea viewing, submission, voting, and deletion.
-// =================================================================
+
 
 const IdeaCard = ({ idea, userId, handleVote, handleDelete, userEmail }) => {
-    // Check if the current logged-in user is the one who submitted the idea
+
     const isOwner = idea.userId === userId;
     const hasVoted = idea.voters && idea.voters[userId];
     const voteCount = idea.votes || 0;
     
-    // Using simple window.confirm (Note: use custom modal in production)
+   
     const confirmDelete = () => {
         if (window.confirm("Are you sure you want to delete this idea?")) {
             handleDelete(idea.id);
@@ -189,7 +180,7 @@ const IdeaCard = ({ idea, userId, handleVote, handleDelete, userEmail }) => {
 
 const IdeasPage = ({ user, handleSignOut }) => {
     const userId = user.uid;
-    // Display the part of the email before @ (e.g., 'mayankjha12')
+    
     const userDisplay = user.email ? user.email.split('@')[0] : 'Guest'; 
     const userEmail = user.email || 'Anonymous';
     const [ideas, setIdeas] = useState([]);
@@ -199,16 +190,16 @@ const IdeasPage = ({ user, handleSignOut }) => {
     const [error, setError] = useState('');
     const [showSubmitForm, setShowSubmitForm] = useState(false);
 
-    const db = dbInstance; // Get the initialized DB instance
+    const db = dbInstance; 
 
-    // 1. Fetch Ideas (Real-time listener)
+    
     useEffect(() => {
         if (!db) return;
 
-        // Public collection path: /artifacts/{appId}/public/data/ideas
+        
         const ideasColRef = collection(db, 'artifacts', appId, 'public', 'data', 'ideas');
         
-        // Query ordered by creation time (desc) for efficient Firestore querying
+
         const q = query(ideasColRef, orderBy('createdAt', 'desc'));
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -216,15 +207,14 @@ const IdeasPage = ({ user, handleSignOut }) => {
                 id: doc.id,
                 ...doc.data()
             }));
-
-            // Local sorting based on filter 
+r 
             const sortedIdeas = fetchedIdeas.sort((a, b) => {
                 if (filter === 'top') {
-                    // Sort by votes, highest first
+                  
                     return (b.votes || 0) - (a.votes || 0);
                 }
                 if (filter === 'new') {
-                    // Sort by creation time (using safe toMillis)
+                   
                     return (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0);
                 }
                 return (b.votes || 0) - (a.votes || 0);
@@ -239,7 +229,7 @@ const IdeasPage = ({ user, handleSignOut }) => {
         return () => unsubscribe();
     }, [db, filter]);
 
-    // 2. Submit New Idea
+
     const handleSubmitIdea = async (e) => {
         e.preventDefault();
         if (!db || !newIdea.title || !newIdea.description) {
@@ -271,7 +261,7 @@ const IdeasPage = ({ user, handleSignOut }) => {
         }
     };
 
-    // 3. Vote Logic (Upvote/Downvote)
+
     const handleVote = useCallback(async (ideaId, currentUserId, voteType) => {
         if (!db) return;
 
@@ -286,18 +276,16 @@ const IdeasPage = ({ user, handleSignOut }) => {
             let newVoters = currentIdea.voters || {};
 
             if (currentVote === voteType) {
-                // Revoking vote (clicking the same button twice)
+             
                 newVoteCount -= voteType;
                 delete newVoters[currentUserId];
             } else {
-                // Changing or casting a new vote
                 
-                // 1. Remove previous vote effect (if any)
                 if (currentVote !== 0) {
                     newVoteCount -= currentVote;
                 }
                 
-                // 2. Apply new vote effect
+           
                 newVoteCount += voteType;
                 newVoters[currentUserId] = voteType;
             }
@@ -312,7 +300,7 @@ const IdeasPage = ({ user, handleSignOut }) => {
         }
     }, [db, ideas]);
 
-    // 4. Delete Idea (Owner only)
+
     const handleDelete = async (ideaId) => {
         if (!db) return;
         
@@ -451,19 +439,15 @@ const IdeasPage = ({ user, handleSignOut }) => {
 };
 
 
-// =================================================================
-// 3. MAIN APPLICATION ROOT (App Component)
-// Handles routing and Firebase initialization safely
-// =================================================================
 
 export default function App() {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [isAuthReady, setAuthReady] = useState(false);
 
-    // 1. Firebase Initialization and Auth Listener (Executed Safely)
+ 
     useEffect(() => {
-        // Only initialize if config is present
+     
         if (Object.keys(firebaseConfig).length === 0) {
             setLoading(false);
             setAuthReady(true);
@@ -475,15 +459,13 @@ export default function App() {
             const auth = getAuth(app);
             const db = getFirestore(app);
 
-            // Set global instances so child components can access them
+          
             authInstance = auth;
             dbInstance = db;
-            
-            // Set logging level for debugging Firebase operations
-            // setLogLevel('Debug');
+         
 
             const initializeAuth = async () => {
-                // Sign in with custom token if available, otherwise anonymously
+     
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token).catch(e => console.error("Custom Auth Error:", e));
                 } else {
@@ -494,7 +476,6 @@ export default function App() {
             
             initializeAuth();
 
-            // Listener for auth state changes (This handles Sign In/Sign Out)
             const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
                 setUser(currentUser);
                 setLoading(false);
@@ -527,12 +508,11 @@ export default function App() {
         );
     }
 
-    // Conditional Rendering: Autohandles routing (Fixes the "Switch" button issue)
     if (user && user.email) {
-        // Logged In: Show Ideas Page (only if email is available, ensuring real user)
+
         return <IdeasPage user={user} handleSignOut={handleSignOut} />;
     } else {
-        // Logged Out or Anonymous: Show Auth Page
+  
         return <AuthPage />;
     }
 }
