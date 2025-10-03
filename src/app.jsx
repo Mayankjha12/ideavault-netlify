@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { LogOut, Loader, Zap, Plus, ArrowUp, ArrowDown, Trash2, Lightbulb } from 'lucide-react';
+import { LogOut, Loader, Plus, ArrowUp, ArrowDown, Trash2, Lightbulb } from 'lucide-react';
 import AuthPage from './components/AuthPage.jsx'; 
 
 const AUTH_KEY = 'ideaVaultIsLoggedIn';
@@ -7,8 +7,10 @@ const EMAIL_KEY = 'ideaVaultUserEmail';
 const CREDENTIALS_KEY = 'ideaVaultCredentials';
 const IDEAS_KEY = 'ideaVaultIdeas';
 
+// Fixed User ID for Local Storage version
 const LOCAL_USER_ID = 'local-storage-user';
 
+// --- SEED DATA (Initial 4 Ideas) ---
 const SEED_IDEAS = [
     { 
         id: '1', 
@@ -56,13 +58,25 @@ const SEED_IDEAS = [
     },
 ];
 
-// Function to safely load ideas from Local Storage
+// **********************************************
+// ** UPDATED loadIdeas FUNCTION **
+// **********************************************
 const loadIdeas = () => {
     try {
         const storedIdeas = localStorage.getItem(IDEAS_KEY);
-        // If storedIdeas exists, parse it. Otherwise, return the SEED_IDEAS.
-        return storedIdeas ? JSON.parse(storedIdeas) : SEED_IDEAS;
+        
+        if (storedIdeas) {
+            const parsedIdeas = JSON.parse(storedIdeas);
+            // Check if stored data is null, undefined, or an empty array
+            if (!parsedIdeas || parsedIdeas.length === 0) {
+                return SEED_IDEAS; // If empty or null, return seed data
+            }
+            return parsedIdeas; // If data exists, return stored data
+        }
+        
+        return SEED_IDEAS; // If nothing is stored (first load), return seed data
     } catch (e) {
+        console.error("Error loading ideas from storage:", e);
         return SEED_IDEAS;
     }
 };
@@ -94,6 +108,11 @@ const saveCredentials = (credentials) => {
         // Handle error if storage is full
     }
 };
+
+
+// =================================================================
+// 1. IDEA CARD COMPONENT
+// =================================================================
 
 const IdeaCard = ({ idea, handleVote, handleDelete }) => {
     const isOwner = true;
@@ -153,6 +172,9 @@ const IdeaCard = ({ idea, handleVote, handleDelete }) => {
     );
 };
 
+// =================================================================
+// 2. CONSISTENT HEADER COMPONENT
+// =================================================================
 
 const GradientHeaderLogo = () => (
     <div className="flex items-center space-x-2">
@@ -168,10 +190,16 @@ const GradientHeaderLogo = () => (
     </div>
 );
 
+// =================================================================
+// 3. IDEAS PAGE COMPONENT
+// =================================================================
 
 const IdeasPage = ({ user, handleSignOut }) => {
     const userDisplay = user.email ? user.email.split('@')[0] : 'Guest';
     
+    // **********************************************
+    // ** loadIdeas is called here **
+    // **********************************************
     const [ideas, setIdeas] = useState(loadIdeas);
     const [newIdea, setNewIdea] = useState({ title: '', description: '', category: '' });
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -402,10 +430,15 @@ const IdeasPage = ({ user, handleSignOut }) => {
 };
 
 
+// =================================================================
+// 4. MAIN APP COMPONENT
+// =================================================================
+
 export default function App() {
     const [user, setUser] = useState(() => {
         const isLoggedIn = localStorage.getItem(AUTH_KEY) === 'true';
         const userEmail = localStorage.getItem(EMAIL_KEY);
+        // User is only considered logged in if BOTH keys are present
         return isLoggedIn && userEmail ? { uid: LOCAL_USER_ID, email: userEmail } : null;
     });
     const [loading, setLoading] = useState(true);
@@ -438,6 +471,9 @@ export default function App() {
         return { success: false, error: "Invalid authentication type." };
     };
     
+    // **********************************************
+    // ** handleSignOut is correct, it clears the keys **
+    // **********************************************
     const handleSignOut = () => {
         localStorage.removeItem(AUTH_KEY);
         localStorage.removeItem(EMAIL_KEY);
@@ -460,6 +496,7 @@ export default function App() {
     if (user && user.email) {
         return <IdeasPage user={user} handleSignOut={handleSignOut} />;
     } else {
+        // AuthPage is now expected to handle the 'Gradient' logo styling itself.
         return <AuthPage handleAuth={handleAuth} />; 
     }
 }
