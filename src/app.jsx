@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { LogOut, Loader, Zap, Plus, ArrowUp, ArrowDown, Trash2, Lightbulb } from 'lucide-react';
-import AuthPage from './AuthPage'; 
+import AuthPage from './components/AuthPage.jsx'; 
 
 const AUTH_KEY = 'ideaVaultIsLoggedIn';
 const EMAIL_KEY = 'ideaVaultUserEmail';
