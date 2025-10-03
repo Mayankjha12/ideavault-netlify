@@ -1,25 +1,81 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { LogOut, Loader, Zap, Plus, ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
-import AuthPage from './components/AuthPage.jsx'; 
+import { LogOut, Loader, Zap, Plus, ArrowUp, ArrowDown, Trash2, Lightbulb } from 'lucide-react';
+import AuthPage from './AuthPage'; 
+// Assuming AuthForm.jsx and IdeaCard.jsx are imported/defined or moved into app.jsx
 
+// =================================================================
+// 0. LOCAL STORAGE & DATA UTILS (AND SEED DATA)
+// =================================================================
+
+// Local Storage Keys
 const AUTH_KEY = 'ideaVaultIsLoggedIn';
 const EMAIL_KEY = 'ideaVaultUserEmail';
-const CREDENTIALS_KEY = 'ideaVaultCredentials'; // New key for storing user credentials
+const CREDENTIALS_KEY = 'ideaVaultCredentials';
 const IDEAS_KEY = 'ideaVaultIdeas';
 
 // Fixed User ID for Local Storage version
 const LOCAL_USER_ID = 'local-storage-user';
 
-// ... (loadIdeas and saveIdeas functions remain the same)
+// --- SEED DATA (Initial 4 Ideas) ---
+const SEED_IDEAS = [
+    { 
+        id: '1', 
+        title: 'AI-Powered Resume Builder', 
+        description: 'Uses LLMs to analyze job descriptions and tailor resumes instantly. Saves job seekers hours of work.', 
+        category: 'AI/SaaS', 
+        userId: 'admin-user', 
+        userEmail: 'admin@ideavault.com',
+        votes: 45, 
+        voters: {[LOCAL_USER_ID]: 1},
+        createdAt: Date.now() - 86400000, 
+    },
+    { 
+        id: '2', 
+        title: 'Decentralized Energy Trading Platform', 
+        description: 'A blockchain platform allowing homeowners with solar panels to sell surplus energy directly to neighbors.', 
+        category: 'Web3/Energy', 
+        userId: 'admin-user', 
+        userEmail: 'admin@ideavault.com',
+        votes: 12, 
+        voters: {}, 
+        createdAt: Date.now() - 3600000, 
+    },
+    { 
+        id: '3', 
+        title: 'Micro-Learning Platform for Coding', 
+        description: '10-minute daily coding challenges delivered via WhatsApp/Telegram to keep developers sharp.', 
+        category: 'Education/Mobile', 
+        userId: 'admin-user', 
+        userEmail: 'admin@ideavault.com',
+        votes: 30, 
+        voters: {}, 
+        createdAt: Date.now() - 7200000, 
+    },
+    { 
+        id: '4', 
+        title: 'Zero-Click Meeting Summarizer', 
+        description: 'An app that automatically joins your virtual meetings and sends a summarized transcript without user intervention.', 
+        category: 'Productivity/AI', 
+        userId: 'admin-user', 
+        userEmail: 'admin@ideavault.com',
+        votes: 20, 
+        voters: {}, 
+        createdAt: Date.now(), 
+    },
+];
+
+// Function to safely load ideas from Local Storage
 const loadIdeas = () => {
     try {
         const storedIdeas = localStorage.getItem(IDEAS_KEY);
-        return storedIdeas ? JSON.parse(storedIdeas) : [];
+        // If storedIdeas exists, parse it. Otherwise, return the SEED_IDEAS.
+        return storedIdeas ? JSON.parse(storedIdeas) : SEED_IDEAS;
     } catch (e) {
-        return [];
+        return SEED_IDEAS;
     }
 };
 
+// Function to safely save ideas to Local Storage
 const saveIdeas = (ideas) => {
     try {
         localStorage.setItem(IDEAS_KEY, JSON.stringify(ideas));
@@ -32,7 +88,7 @@ const saveIdeas = (ideas) => {
 const loadCredentials = () => {
     try {
         const stored = localStorage.getItem(CREDENTIALS_KEY);
-        return stored ? JSON.parse(stored) : {}; // { email: {password: '...', username: '...'}}
+        return stored ? JSON.parse(stored) : {}; 
     } catch (e) {
         return {};
     }
@@ -49,11 +105,8 @@ const saveCredentials = (credentials) => {
 
 
 // =================================================================
-// 1. IDEAS PAGE (IdeasPage Component) - Your main app content
-// ... (IdeasPage and IdeaCard remain mostly the same, ensure they are copied or imported correctly)
-// ... (Note: The IdeasPage component from your prompt uses both the IdeasPage.jsx and a simplified version in app.jsx. I will keep the simplified version in app.jsx for now, as it handles the full flow)
-
-// ... (IdeaCard component from app.jsx)
+// 1. IDEA CARD COMPONENT
+// =================================================================
 
 const IdeaCard = ({ idea, handleVote, handleDelete }) => {
     const isOwner = true;
@@ -113,10 +166,29 @@ const IdeaCard = ({ idea, handleVote, handleDelete }) => {
     );
 };
 
-// ... (IdeasPage component from app.jsx)
+// =================================================================
+// 2. CONSISTENT HEADER COMPONENT
+// =================================================================
+
+const GradientHeaderLogo = () => (
+    <div className="flex items-center space-x-2">
+        <div 
+            className="w-8 h-8 flex items-center justify-center rounded-lg shadow-md"
+            style={{
+                background: 'linear-gradient(to bottom right, #a855f7, #f97316)', // Purple-to-Orange gradient
+            }}
+        >
+            <Lightbulb className="w-4 h-4 text-white" fill="white" />
+        </div>
+        <h1 className="text-xl font-bold text-gray-900">IdeaVault</h1>
+    </div>
+);
+
+// =================================================================
+// 3. IDEAS PAGE COMPONENT
+// =================================================================
 
 const IdeasPage = ({ user, handleSignOut }) => {
-    // ... (Your IdeasPage logic)
     const userDisplay = user.email ? user.email.split('@')[0] : 'Guest';
     
     const [ideas, setIdeas] = useState(loadIdeas);
@@ -169,7 +241,16 @@ const IdeasPage = ({ user, handleSignOut }) => {
         
         setIdeas(prevIdeas => {
             const updatedIdeas = [newIdeaObject, ...prevIdeas];
-            return updatedIdeas.sort((a, b) => (b.votes || 0) - (a.votes || 0));
+            // Re-sort to show the new idea based on the current filter
+            return updatedIdeas.sort((a, b) => {
+                 if (filter === 'top') {
+                    return (b.votes || 0) - (a.votes || 0);
+                }
+                if (filter === 'new') {
+                    return b.createdAt - a.createdAt;
+                }
+                return (b.votes || 0) - (a.votes || 0);
+            });
         });
 
         setNewIdea({ title: '', description: '', category: '' });
@@ -217,15 +298,13 @@ const IdeasPage = ({ user, handleSignOut }) => {
         setIdeas(prevIdeas => prevIdeas.filter(idea => idea.id !== ideaId));
     };
 
-
     return (
         <div className="min-h-screen bg-gray-50">
             <header className="bg-white shadow-md sticky top-0 z-10">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-                    <div className="flex items-center space-x-2">
-                        <Zap className="h-6 w-6 text-indigo-600" />
-                        <h1 className="text-xl font-bold text-gray-900">IdeaVault</h1> 
-                    </div>
+                    {/* Consistent Logo */}
+                    <GradientHeaderLogo /> 
+                    
                     <div className="flex items-center space-x-3 text-sm">
                         <span className="text-gray-600 hidden sm:inline truncate max-w-xs font-medium">Welcome, {userDisplay}</span>
                         <button
@@ -342,24 +421,23 @@ const IdeasPage = ({ user, handleSignOut }) => {
 };
 
 
+// =================================================================
+// 4. MAIN APP COMPONENT
+// =================================================================
+
 export default function App() {
     const [user, setUser] = useState(() => {
         const isLoggedIn = localStorage.getItem(AUTH_KEY) === 'true';
         const userEmail = localStorage.getItem(EMAIL_KEY);
-        // Only consider logged in if both key and email are present
         return isLoggedIn && userEmail ? { uid: LOCAL_USER_ID, email: userEmail } : null;
     });
     const [loading, setLoading] = useState(true);
 
-    // --- NEW/UPDATED AUTH LOGIC ---
-    
-    // Handles both Sign In and Sign Up
     const handleAuth = (type, email, password, username) => {
         const credentials = loadCredentials();
         
         if (type === 'signIn') {
             if (credentials[email] && credentials[email].password === password) {
-                // Successful Sign In
                 localStorage.setItem(AUTH_KEY, 'true');
                 localStorage.setItem(EMAIL_KEY, email);
                 setUser({ uid: LOCAL_USER_ID, email });
@@ -372,7 +450,6 @@ export default function App() {
                 return { success: false, error: "An account with this email already exists." };
             }
             
-            // Successful Sign Up
             credentials[email] = { password, username };
             saveCredentials(credentials);
             
@@ -384,15 +461,12 @@ export default function App() {
         return { success: false, error: "Invalid authentication type." };
     };
     
-    // Fake Sign Out function
     const handleSignOut = () => {
         localStorage.removeItem(AUTH_KEY);
         localStorage.removeItem(EMAIL_KEY);
-        // localStorage.removeItem(CREDENTIALS_KEY); // Optionally clear all credentials
         setUser(null);
     };
 
-    // Simulate app loading briefly
     useEffect(() => {
         setTimeout(() => setLoading(false), 500);
     }, []);
@@ -406,12 +480,11 @@ export default function App() {
         );
     }
 
-    // Conditional Routing based on Auth state
     if (user && user.email) {
-        // Logged in user with Email (Local Storage)
         return <IdeasPage user={user} handleSignOut={handleSignOut} />;
     } else {
-        // Logged out user: Show the fake AuthPage, passing the new handler
-        return <AuthPage handleAuth={handleAuth} />; // PASSING handleAuth
+        // AuthPage is now expected to handle the 'Gradient' logo styling itself.
+        // We pass the consistent auth handler.
+        return <AuthPage handleAuth={handleAuth} />; 
     }
 }
