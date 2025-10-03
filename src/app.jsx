@@ -1,22 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { LogOut, Loader, Zap, Plus, ArrowUp, ArrowDown, Trash2, Lightbulb } from 'lucide-react';
 import AuthPage from './AuthPage'; 
-// Assuming AuthForm.jsx and IdeaCard.jsx are imported/defined or moved into app.jsx
 
-// =================================================================
-// 0. LOCAL STORAGE & DATA UTILS (AND SEED DATA)
-// =================================================================
-
-// Local Storage Keys
 const AUTH_KEY = 'ideaVaultIsLoggedIn';
 const EMAIL_KEY = 'ideaVaultUserEmail';
 const CREDENTIALS_KEY = 'ideaVaultCredentials';
 const IDEAS_KEY = 'ideaVaultIdeas';
 
-// Fixed User ID for Local Storage version
 const LOCAL_USER_ID = 'local-storage-user';
 
-// --- SEED DATA (Initial 4 Ideas) ---
 const SEED_IDEAS = [
     { 
         id: '1', 
@@ -103,11 +95,6 @@ const saveCredentials = (credentials) => {
     }
 };
 
-
-// =================================================================
-// 1. IDEA CARD COMPONENT
-// =================================================================
-
 const IdeaCard = ({ idea, handleVote, handleDelete }) => {
     const isOwner = true;
     const hasVoted = idea.voters && idea.voters[LOCAL_USER_ID];
@@ -166,9 +153,6 @@ const IdeaCard = ({ idea, handleVote, handleDelete }) => {
     );
 };
 
-// =================================================================
-// 2. CONSISTENT HEADER COMPONENT
-// =================================================================
 
 const GradientHeaderLogo = () => (
     <div className="flex items-center space-x-2">
@@ -184,9 +168,6 @@ const GradientHeaderLogo = () => (
     </div>
 );
 
-// =================================================================
-// 3. IDEAS PAGE COMPONENT
-// =================================================================
 
 const IdeasPage = ({ user, handleSignOut }) => {
     const userDisplay = user.email ? user.email.split('@')[0] : 'Guest';
@@ -421,10 +402,6 @@ const IdeasPage = ({ user, handleSignOut }) => {
 };
 
 
-// =================================================================
-// 4. MAIN APP COMPONENT
-// =================================================================
-
 export default function App() {
     const [user, setUser] = useState(() => {
         const isLoggedIn = localStorage.getItem(AUTH_KEY) === 'true';
@@ -483,8 +460,6 @@ export default function App() {
     if (user && user.email) {
         return <IdeasPage user={user} handleSignOut={handleSignOut} />;
     } else {
-        // AuthPage is now expected to handle the 'Gradient' logo styling itself.
-        // We pass the consistent auth handler.
         return <AuthPage handleAuth={handleAuth} />; 
     }
 }
