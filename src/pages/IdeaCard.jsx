@@ -1,54 +1,68 @@
-import React, { useState } from 'react';
-import { ArrowUp, MessageSquare } from 'lucide-react';
+import React from 'react';
+import { ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
 
-const IdeaCard = ({ idea }) => {
-  const [votes, setVotes] = useState(idea.initialVotes);
-  const [hasVoted, setHasVoted] = useState(false);
+const LOCAL_USER_ID = 'local-storage-user'; // Needs to be defined or passed
 
-  const handleVote = () => {
-    if (!hasVoted) {
-      setVotes(votes + 1);
-      setHasVoted(true);
-    } else {
-      setVotes(votes - 1);
-      setHasVoted(false);
+// IdeaCard now expects idea, handleVote, and handleDelete props from IdeasPage/app.jsx
+const IdeaCard = ({ idea, handleVote, handleDelete }) => {
+  const isOwner = true; // Still true for local storage
+  const hasVoted = idea.voters && idea.voters[LOCAL_USER_ID];
+  const voteCount = idea.votes || 0;
+
+  const confirmDelete = () => {
+    if (window.confirm("Are you sure you want to delete this idea?")) {
+        handleDelete(idea.id);
     }
   };
 
   return (
-    <div className="flex bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden border border-gray-100">
+    // Updated container shadow and border
+    <div className="bg-white p-5 rounded-xl shadow-lg border border-gray-200 flex space-x-4">
       
-      {/* Upvote Column */}
-      <div className="flex flex-col items-center justify-start p-4 bg-gray-50 border-r border-gray-100">
+      {/* Upvote Column (Matches app.jsx structure) */}
+      <div className="flex flex-col items-center justify-center">
         <button
-          onClick={handleVote}
-          className={`flex flex-col items-center p-2 rounded-xl transition-colors duration-200 ${
-            hasVoted
-              ? 'bg-violet-100 text-violet-600'
-              : 'text-gray-500 hover:bg-gray-100 hover:text-violet-500'
-          }`}
+          onClick={() => handleVote(idea.id, 1)}
+          className={`p-1 rounded-full transition duration-150 ${hasVoted === 1 ? 'text-indigo-600 bg-indigo-100' : 'text-gray-400 hover:text-indigo-500'}`}
+          title="Upvote"
         >
           <ArrowUp className="w-5 h-5" />
-          <span className="text-sm font-bold mt-1">{votes}</span>
+        </button>
+        {/* Vote count styling matches app.jsx */}
+        <span className={`font-bold text-xl mt-1 mb-1 ${voteCount > 0 ? 'text-green-600' : voteCount < 0 ? 'text-red-600' : 'text-gray-700'}`}>
+          {voteCount}
+        </span>
+        <button
+          onClick={() => handleVote(idea.id, -1)}
+          className={`p-1 rounded-full transition duration-150 ${hasVoted === -1 ? 'text-red-600 bg-red-100' : 'text-gray-400 hover:text-red-500'}`}
+          title="Downvote"
+        >
+          <ArrowDown className="w-5 h-5" />
         </button>
       </div>
 
       {/* Content Column */}
-      <div className="p-5 flex-grow">
-        <h3 className="text-xl font-bold text-gray-800 mb-1">{idea.title}</h3>
-        <p className="text-gray-600 mb-3 line-clamp-2">{idea.description}</p>
-        
-        <div className="flex items-center space-x-4 text-sm text-gray-500">
-          {/* Tags (optional) */}
-          <span className="px-3 py-1 bg-violet-50 text-violet-600 rounded-full font-medium">
-            {idea.category}
+      <div className="flex-1">
+        <div className="flex justify-between items-start">
+          <h3 className="text-xl font-semibold text-gray-900">{idea.title}</h3>
+          {/* Delete Button (Added from app.jsx) */}
+          {isOwner && (
+            <button
+              onClick={confirmDelete}
+              className="text-red-500 hover:text-red-700 p-1 transition duration-150"
+              title="Delete Idea"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+          )}
+        </div>
+        <p className="text-gray-600 mt-1">{idea.description}</p>
+        <div className="mt-3 text-sm text-gray-500">
+          {/* Category color changed to indigo */}
+          <span className="font-medium text-indigo-600 mr-2">{idea.category || 'General'}</span>
+          <span className="text-xs">
+            Shared by: {idea.userEmail ? idea.userEmail.split('@')[0] : 'Local User'}
           </span>
-          
-          {/* Comments/Discussions */}
-          <div className="flex items-center space-x-1 hover:text-violet-600 cursor-pointer transition-colors">
-            <MessageSquare className="w-4 h-4" />
-            <span>{idea.comments}</span>
-          </div>
         </div>
       </div>
     </div>
