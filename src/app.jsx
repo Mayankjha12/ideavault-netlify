@@ -1,6 +1,6 @@
 import React from 'react';
-import IdeasPage from './pages/IdeasPage';
-import AuthPage from './pages/AuthPage';
+import IdeasPage from './pages/IdeasPage.jsx';
+import AuthPage from './pages/AuthPage.jsx';
 
 function App() {
   // Simple state to toggle between views for demo/testing
