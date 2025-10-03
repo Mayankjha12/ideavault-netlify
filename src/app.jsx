@@ -1,5 +1,5 @@
 import React from 'react';
-import IdeasPage from './components/IdeasPage.jsx';
+import IdeasPage from './pages/IdeasPage.jsx';
 import AuthPage from './components/AuthPage.jsx';
 
 function App() {
