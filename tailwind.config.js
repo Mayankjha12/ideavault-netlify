@@ -1,11 +1,11 @@
-/** @type {import('tailwindcss').Config} */
-module.exports = {
+export default { 
+    // यह Tailwind को बताता है कि उसे किन फाइलों में CSS क्लास ढूंढनी हैं
     content: [
       "./index.html",
-      "./src/**/*.{js,ts,jsx,tsx}", // This line tells Tailwind to look in all files inside src
+      "./src/**/*.{js,ts,jsx,tsx}", 
     ],
     theme: {
       extend: {},
     },
     plugins: [],
-  }
+}
