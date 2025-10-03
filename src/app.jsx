@@ -1,20 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { LogOut, Loader, Zap, Plus, ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
-import AuthPage from './AuthPage'; // Ensure AuthPage.jsx exists in the same directory
+import AuthPage from './components/AuthPage.jsx'; 
 
-// =================================================================
-// 0. LOCAL STORAGE & DATA UTILS
-// =================================================================
-
-// Local Storage Keys
-const AUTH_KEY = 'ideaVaultUser';
+const AUTH_KEY = 'ideaVaultIsLoggedIn';
 const EMAIL_KEY = 'ideaVaultUserEmail';
+const CREDENTIALS_KEY = 'ideaVaultCredentials'; // New key for storing user credentials
 const IDEAS_KEY = 'ideaVaultIdeas';
 
 // Fixed User ID for Local Storage version
 const LOCAL_USER_ID = 'local-storage-user';
 
-// Function to safely load ideas from Local Storage
+// ... (loadIdeas and saveIdeas functions remain the same)
 const loadIdeas = () => {
     try {
         const storedIdeas = localStorage.getItem(IDEAS_KEY);
@@ -24,7 +20,6 @@ const loadIdeas = () => {
     }
 };
 
-// Function to safely save ideas to Local Storage
 const saveIdeas = (ideas) => {
     try {
         localStorage.setItem(IDEAS_KEY, JSON.stringify(ideas));
@@ -33,17 +28,38 @@ const saveIdeas = (ideas) => {
     }
 };
 
+// Function to load all stored credentials
+const loadCredentials = () => {
+    try {
+        const stored = localStorage.getItem(CREDENTIALS_KEY);
+        return stored ? JSON.parse(stored) : {}; // { email: {password: '...', username: '...'}}
+    } catch (e) {
+        return {};
+    }
+};
+
+// Function to save all stored credentials
+const saveCredentials = (credentials) => {
+    try {
+        localStorage.setItem(CREDENTIALS_KEY, JSON.stringify(credentials));
+    } catch (e) {
+        // Handle error if storage is full
+    }
+};
+
+
 // =================================================================
 // 1. IDEAS PAGE (IdeasPage Component) - Your main app content
-// =================================================================
+// ... (IdeasPage and IdeaCard remain mostly the same, ensure they are copied or imported correctly)
+// ... (Note: The IdeasPage component from your prompt uses both the IdeasPage.jsx and a simplified version in app.jsx. I will keep the simplified version in app.jsx for now, as it handles the full flow)
+
+// ... (IdeaCard component from app.jsx)
 
 const IdeaCard = ({ idea, handleVote, handleDelete }) => {
-    // Everyone is the 'owner' for local storage version simplicity
-    const isOwner = true; 
+    const isOwner = true;
     const hasVoted = idea.voters && idea.voters[LOCAL_USER_ID];
     const voteCount = idea.votes || 0;
-    
-    // NOTE: Using window.confirm instead of a custom modal 
+
     const confirmDelete = () => {
         if (window.confirm("Are you sure you want to delete this idea?")) {
             handleDelete(idea.id);
@@ -97,7 +113,10 @@ const IdeaCard = ({ idea, handleVote, handleDelete }) => {
     );
 };
 
+// ... (IdeasPage component from app.jsx)
+
 const IdeasPage = ({ user, handleSignOut }) => {
+    // ... (Your IdeasPage logic)
     const userDisplay = user.email ? user.email.split('@')[0] : 'Guest';
     
     const [ideas, setIdeas] = useState(loadIdeas);
@@ -198,13 +217,13 @@ const IdeasPage = ({ user, handleSignOut }) => {
         setIdeas(prevIdeas => prevIdeas.filter(idea => idea.id !== ideaId));
     };
 
+
     return (
         <div className="min-h-screen bg-gray-50">
             <header className="bg-white shadow-md sticky top-0 z-10">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
                     <div className="flex items-center space-x-2">
                         <Zap className="h-6 w-6 text-indigo-600" />
-                        {/* FINAL FIX: Removed (Local Data) from the header title */}
                         <h1 className="text-xl font-bold text-gray-900">IdeaVault</h1> 
                     </div>
                     <div className="flex items-center space-x-3 text-sm">
@@ -229,7 +248,6 @@ const IdeasPage = ({ user, handleSignOut }) => {
 
             <main className="max-w-7xl mx-auto py-8 sm:px-6 lg:px-8">
                 <h2 className="text-3xl font-extrabold text-gray-900 mb-2">Startup Ideas</h2>
-                {/* FINAL FIX: Removed (Fake Auth & Local Data) from the subtitle */}
                 <p className="text-gray-500 mb-6">Discover and vote on the next big thing</p>
                 
                 {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 text-sm">{error}</div>}
@@ -325,23 +343,52 @@ const IdeasPage = ({ user, handleSignOut }) => {
 
 
 export default function App() {
-    // Initial state: Check Local Storage for saved login status
     const [user, setUser] = useState(() => {
         const isLoggedIn = localStorage.getItem(AUTH_KEY) === 'true';
         const userEmail = localStorage.getItem(EMAIL_KEY);
+        // Only consider logged in if both key and email are present
         return isLoggedIn && userEmail ? { uid: LOCAL_USER_ID, email: userEmail } : null;
     });
     const [loading, setLoading] = useState(true);
 
-    // Function to update user state after Sign In/Sign Up
-    const setLocalUser = (userData) => {
-        setUser(userData);
+    // --- NEW/UPDATED AUTH LOGIC ---
+    
+    // Handles both Sign In and Sign Up
+    const handleAuth = (type, email, password, username) => {
+        const credentials = loadCredentials();
+        
+        if (type === 'signIn') {
+            if (credentials[email] && credentials[email].password === password) {
+                // Successful Sign In
+                localStorage.setItem(AUTH_KEY, 'true');
+                localStorage.setItem(EMAIL_KEY, email);
+                setUser({ uid: LOCAL_USER_ID, email });
+                return { success: true };
+            } else {
+                return { success: false, error: "Invalid email or password." };
+            }
+        } else if (type === 'signUp') {
+            if (credentials[email]) {
+                return { success: false, error: "An account with this email already exists." };
+            }
+            
+            // Successful Sign Up
+            credentials[email] = { password, username };
+            saveCredentials(credentials);
+            
+            localStorage.setItem(AUTH_KEY, 'true');
+            localStorage.setItem(EMAIL_KEY, email);
+            setUser({ uid: LOCAL_USER_ID, email });
+            return { success: true };
+        }
+        return { success: false, error: "Invalid authentication type." };
     };
-
+    
     // Fake Sign Out function
     const handleSignOut = () => {
         localStorage.removeItem(AUTH_KEY);
         localStorage.removeItem(EMAIL_KEY);
+        // localStorage.removeItem(CREDENTIALS_KEY); // Optionally clear all credentials
         setUser(null);
     };
 
@@ -364,7 +411,7 @@ export default function App() {
         // Logged in user with Email (Local Storage)
         return <IdeasPage user={user} handleSignOut={handleSignOut} />;
     } else {
-        // Logged out user: Show the fake AuthPage
-        return <AuthPage setLocalUser={setLocalUser} />;
+        // Logged out user: Show the fake AuthPage, passing the new handler
+        return <AuthPage handleAuth={handleAuth} />; // PASSING handleAuth
     }
 }
